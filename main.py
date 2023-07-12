@@ -4,23 +4,31 @@ import os
 
 import model
 
-torch.zeros(1).cuda()
-
 print(torch.cuda.is_available())
 
-enc = tiktoken.encoding_for_model("text-davinci-003")
-assert enc.decode(enc.encode('hello world')) == 'hello world'
+# enc = tiktoken.encoding_for_model("text-davinci-003")
+# assert enc.decode(enc.encode('hello world')) == 'hello world'
+#
 
-vocab_size = enc.n_vocab
-print(f'vocab_size: {vocab_size}')
+
+def encode(text):
+    return [ord(a) for a in text]
+
+
+def decode(data):
+    return ''.join(map(chr, data))
+
 
 if __name__ == '__main__':
 
     torch.manual_seed(42069)
 
     raw_dataset = open('tinyshakespeare.txt').read()
-    dataset = torch.tensor(enc.encode(raw_dataset), dtype=torch.long)
+    dataset = encode(raw_dataset)
+    dataset = torch.tensor(dataset, dtype=torch.long)
     print(dataset)
+    vocab_size = 128
+    print(f'vocab_size: {vocab_size}')
     split = 0.8
     train_set, val_set = dataset[:int(len(dataset)*split)], dataset[int(len(dataset)*split):]
 
@@ -34,21 +42,20 @@ if __name__ == '__main__':
         y = torch.stack([data[i + 1:i + block_size + 1] for i in ix])
         return x, y
 
-    bigram = model.BigramLanguageModel(vocab_size)
-    bigram = bigram.to('cuda')
-    logits, loss = bigram(*get_batch())
+    model = model.LanguageModel(vocab_size=vocab_size, embed_size=384, block_size=block_size, batch_size=batch_size)
+    x, y = get_batch()
+    logits, loss = model(x, y)
     print(f'loss: {loss}')
-    print(enc.decode(bigram.generate(torch.zeros((1, 1), dtype=torch.long), max_new_tokens=100)[0].tolist()))
+    print(decode(model.generate(torch.zeros((1, 1), dtype=torch.long), max_new_tokens=100)[0].tolist()))
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
 
-    optimizer = torch.optim.AdamW(bigram.parameters(), lr=1e-3)
-
-    epochs = 100
+    epochs = 100000
     for epoch in range(epochs):
-        logits, loss = bigram(*get_batch())
+        logits, loss = model(*get_batch())
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
 
         print(f'loss: {loss}')
 
-    print(enc.decode(bigram.generate(torch.zeros((1, 1), dtype=torch.long), max_new_tokens=100)[0].tolist()))
+    print(decode(model.generate(torch.zeros((1, 1), dtype=torch.long), max_new_tokens=100)[0].tolist()))
