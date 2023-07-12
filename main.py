@@ -1,7 +1,10 @@
 import tiktoken
 import torch
+import os
 
 import model
+
+torch.zeros(1).cuda()
 
 print(torch.cuda.is_available())
 
@@ -17,7 +20,7 @@ if __name__ == '__main__':
 
     raw_dataset = open('tinyshakespeare.txt').read()
     dataset = torch.tensor(enc.encode(raw_dataset), dtype=torch.long)
-
+    print(dataset)
     split = 0.8
     train_set, val_set = dataset[:int(len(dataset)*split)], dataset[int(len(dataset)*split):]
 
@@ -32,6 +35,7 @@ if __name__ == '__main__':
         return x, y
 
     bigram = model.BigramLanguageModel(vocab_size)
+    bigram = bigram.to('cuda')
     logits, loss = bigram(*get_batch())
     print(f'loss: {loss}')
     print(enc.decode(bigram.generate(torch.zeros((1, 1), dtype=torch.long), max_new_tokens=100)[0].tolist()))
@@ -46,3 +50,5 @@ if __name__ == '__main__':
         optimizer.step()
 
         print(f'loss: {loss}')
+
+    print(enc.decode(bigram.generate(torch.zeros((1, 1), dtype=torch.long), max_new_tokens=100)[0].tolist()))
